@@ -1,0 +1,44 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import product
+
+n_epochs = 20
+learning_rate=0.05
+n_linearly_separable = dict()
+
+
+for n in range(2,6):
+    n_hypercube_vertices = 2**n
+    n_unique_boolean_functions = 2**n_hypercube_vertices
+    boolean_functions = np.random.choice([-1, 1],size=(10_000, n_hypercube_vertices))
+    unique_boolean_functions = np.unique(boolean_functions, axis=0)
+    print("Unique functions found:", unique_boolean_functions.shape[0])
+    linearly_separable = set()
+
+    hypercube_vertices_coordinates = product(range(2), repeat=n) 
+    x = np.array(list(hypercube_vertices_coordinates))
+
+    for boolean_function in boolean_functions:
+        target = np.array(boolean_function)
+        weights = np.random.normal(loc=0, scale=1/n, size=n)
+        threshold = 0
+        output = np.sign(weights @ x.T - threshold)
+        for t in range(n_epochs):
+            residual = (target - output)
+            weights += (learning_rate*residual) @ x
+            threshold -= learning_rate*residual.sum()
+            output = np.sign(weights @ x.T - threshold)
+        
+        # print(f"The input target is {target}.\nThe output is {output}.\nTarget == Output::: {target==output}")
+        if np.all(target==output):
+            linearly_separable.add(target.__str__().strip(']['))
+
+    n_linearly_separable[n] = len(linearly_separable)
+
+    # print(f"The number of linearly separable is {n_linearly_separable}.\nThe fraction of LS is {n_linearly_separable/(2**(2**n)):.2f}")
+
+print(n_linearly_separable)  
+
+
+
+
