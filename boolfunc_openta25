@@ -1,0 +1,92 @@
+import numpy as np
+from itertools import product
+from time import time
+import matplotlib.pyplot as plt
+
+def run(N=5):
+    n_epochs = 20
+    learning_rate=0.05
+
+    results = []
+
+    for n in range(2,N+1):
+        n_hypercube_vertices = 2**n
+        n_unique_boolean_functions = 2**n_hypercube_vertices
+
+        # Generate the boolean functions: 
+        if n < 4:
+            # We construct them for n = 2 and 3
+            boolean_functions = np.array(list(product([-1,1], repeat=n_hypercube_vertices)))
+        else:
+            # For n = 4,5 we construct them by chance. These is some chance, especially for n=4, to construct the same boolean function many times, therefore we construct 12000>10000 boolean functions and later _pick_ 10000
+            boolean_functions = np.random.choice([-1, 1],size=(12_000, n_hypercube_vertices))
+
+        unique_boolean_functions = np.unique(boolean_functions, axis=0)
+        print("Unique functions found:", unique_boolean_functions.shape[0])
+
+        hypercube_vertices_coordinates = product(range(2), repeat=n) 
+        x = np.array(list(hypercube_vertices_coordinates))
+
+        n_linearly_separable = 0
+        n_boolfuncs_tested = n_unique_boolean_functions if n < 4 else 10_000
+
+        for boolean_function in unique_boolean_functions[:n_boolfuncs_tested]:
+            target = np.array(boolean_function)
+            weights = np.random.normal(loc=0, scale=1/np.sqrt(n), size=n)
+            threshold = 0
+            output = np.zeros_like(target, dtype=np.float16)
+
+            for t in range(n_epochs):
+                target_equals_output = True
+
+                for mu in range(n_hypercube_vertices):
+                    x_mu = x[mu]
+                    b = weights.T @ x_mu - threshold
+                    output[mu] = -1 if b < 0 else 1
+
+                    error = target[mu] - output[mu]        # error in [-2, 2] interval
+
+                    # No need to do calculations if the error is zero: 
+                    if error != 0:
+                        target_equals_output = False
+                        dw_mu = learning_rate*error*x_mu
+                        dtheta_mu = -learning_rate*error
+
+                        weights += dw_mu
+                        threshold += dtheta_mu
+
+
+                if target_equals_output:
+                    n_linearly_separable += 1
+                    break
+
+
+        results += [{"n": n,
+                "n_tested_boolfuncs": n_boolfuncs_tested,
+                "n_linearly_separable": n_linearly_separable,
+                "ratio_linearly_separable": n_linearly_separable/n_boolfuncs_tested}]
+    
+    return results
+
+
+def plot_boolfunc_histogram(n=4):
+    n_hypercube_vertices = 2**n
+    n_unique_boolean_functions = 2**n_hypercube_vertices
+
+    # For n = 4,5 we construct them by chance. These is some chance, especially for n=4, to construct the same boolean function many times, therefore we construct 12000>10000 boolean functions and later _pick_ 10000
+    # boolean_functions = np.random.choice([-1, 1],size=(12_000, n_hypercube_vertices))
+    boolean_functions = np.array(list(product([-1,1], repeat=n_hypercube_vertices)))
+    unique_boolean_functions = np.unique(boolean_functions, axis=0)
+    summed_ones = np.sum(unique_boolean_functions[:10000]==1, axis=1)
+
+    fig, ax = plt.subplots(figsize=(5,5))
+
+    ax.hist(summed_ones)
+    plt.show()
+
+
+if __name__ == "__main__":
+    time_start = time()
+    # print(run(N=5))  
+    plot_boolfunc_histogram(4)
+    print(f"Time elapsed: {(time() - time_start):.2f} s")
