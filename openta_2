@@ -9,7 +9,7 @@ def plot_input():
     current_directory = os.getcwd()
     print("Current Directory:", current_directory)
     data = np.loadtxt(os.path.join("hw2", "training_set.csv"), delimiter=',')
-    input = data[:, :2]
+    x = data[:, :2]
     target = data[:, -1]
     print(f"The shape of the data is {data.shape}")
 
@@ -21,18 +21,18 @@ def plot_input():
     for color, num in zip("kr", (-1,1)):
 
         mask_training = np.where(target==num)[0]
-        ax[0].scatter(input[mask_training,0],input[mask_training,1], c=color, alpha=0.5, s=2)
+        ax[0].scatter(x[mask_training,0],input[mask_training,1], c=color, alpha=0.5, s=2)
         
         mask_val = np.where(validation_data[:,-1]==num)[0]
         ax[1].scatter(validation_data[mask_val,0],validation_data[mask_val,1], c=color, alpha=0.5, s=2)
 
     
-    print(f"The mean of the training input is {np.mean(input, axis=0)}")
+    print(f"The mean of the training input is {np.mean(x, axis=0)}")
     print(f"The mean of the validaiton input is {np.mean(validation_data[:,:2], axis=0)}")
     plt.show()
 
 
-def initialize_network(size: tuple=(1,1)):
+def initialize_network(size):
     """
     Initializes the network with zero threshold/biases and normally distributed weights. 
     
@@ -40,49 +40,149 @@ def initialize_network(size: tuple=(1,1)):
     """
     M1, M2 = size
 
-    w1 = np.random.normal(loc=0, scale=0.63, size=(M1, 2))
-    w2 = np.random.normal(loc=0, scale=0.63, size=(M2, M1))
-    w3 = np.random.normal(loc=0, scale=0.63, size=(M2))
+    w1 = np.random.normal(0, 1/np.sqrt(2), (M1, 2))
+    w2 = np.random.normal(0, 1/np.sqrt(M1), (M2, M1))
+    w3 = np.random.normal(0, 1/np.sqrt(M2), (1, M2))
 
     theta1 = np.zeros(M1)
     theta2 = np.zeros(M2)
-    theta3 = 0
+    theta3 = np.zeros(1)
 
-    W = (w1,w2,w3)
+    w = (w1,w2,w3)
     theta = (theta1, theta2, theta3)
-    return W, theta
+    return w, theta
 
-def get_output(W, theta, x_mu):
-    """
-    Feedforward passes of the input x to calculate the output, O. 
-    """
-    b1 = theta[0] + W[0] @ x_mu.T
-    V1 = np.tanh(b1)
+
+def stochastic_gradient_descent(x, target, epochs, eta, network_size, save_weights=False):
     
-    b2 = theta[1] + W[1] @ V1.T
-    V2 = np.tanh(b2)
+    (w1, w2, w3), (theta1, theta2, theta3) = initialize_network(network_size)
 
-    b3 = theta[2] + W[2] @ V2.T
-    O = np.tanh(b3)
-    return O
+    p = x.shape[0]
+    error = 2*np.ones(p)
+    output = np.ones(p)
+
+    C = np.ones(epochs)
+    loss = np.ones(epochs)
+
+    for i in range(epochs):
+
+        # for idx_mu in np.random.choice(x.shape[0], size=p, replace=False):
+        idx_mu = np.random.choice(x.shape[0], size=1, replace=False)[0]
+        x_mu = x[idx_mu]
+        t_mu = target[idx_mu]
+
+        # Propagate forward: 
+        b1 = w1 @ x_mu - theta1
+        V1 = np.tanh(b1)
+        b2 = w2 @ V1 - theta2
+        V2 = np.tanh(b2)
+        b3 = w3 @ V2 - theta3
+        O = np.tanh(b3)
+
+        # Propagate backwards - compute errors:
+        delta3 = (1 - O**2)*(t_mu - O)
+        delta2 = (w3.T @ delta3) * (1 - V2**2)
+        delta1 = (w2.T @ delta2) * (1 - V1**2)
+
+        #Update weights:
+        w1 += eta*np.outer(delta1, x_mu)
+        w2 += eta*np.outer(delta2, V1)
+        w3 += eta*np.outer(delta3, V2)
+
+        theta1 -= eta*delta1
+        theta2 -= eta*delta2
+        theta3 -= eta*delta3
+
+        output[idx_mu] = O
+        error[idx_mu] = np.abs((-1 if O < 0 else 1) - t_mu)
+        C[i] = 1/(2*p)*np.sum(error)
+        loss[i] = 
 
 
-def train_network(input, target, W, theta):
+    fig, ax = plt.subplots(figsize=(5,5))
+    ax.plot(C)
+    plt.show()
+
+    if save_weights:
+        dir_path = os.path.join("OpenTA","Homework2", 'weights')
+        np.savetxt(os.path.join(dir_path,'w1.csv'),X=w1, delimiter=',')
+        np.savetxt(os.path.join(dir_path,'w2.csv'),X=w2, delimiter=',')
+        np.savetxt(os.path.join(dir_path,'w3.csv'),X=w3, delimiter=',')
+        np.savetxt(os.path.join(dir_path,'t1.csv'),X=theta1, delimiter=',')
+        np.savetxt(os.path.join(dir_path,'t2.csv'),X=theta2, delimiter=',')
+        np.savetxt(os.path.join(dir_path,'t3.csv'),X=theta3, delimiter=',')
+
+
+
+def validate_model(val_data):
+    x_val = val_data[:, :2]
+    target_val = val_data[:, -1]
+    p_val = x_val.shape[0]
+
+    print(f"The ratio of t=1 to t=-1 is {np.sum(target_val==1)/np.sum(target_val==-1)}")
+
+    dir_path = os.path.join("OpenTA","Homework2", 'weights')
+    w1 = np.loadtxt(os.path.join(dir_path,'w1.csv'), delimiter=',')
+    w2 = np.loadtxt(os.path.join(dir_path,'w2.csv'), delimiter=',')
+    w3 = np.loadtxt(os.path.join(dir_path,'w3.csv'), delimiter=',')
+    theta1 = np.loadtxt(os.path.join(dir_path,'t1.csv'), delimiter=',')
+    theta2 = np.loadtxt(os.path.join(dir_path,'t2.csv'), delimiter=',')
+    theta3 = np.loadtxt(os.path.join(dir_path,'t3.csv'), delimiter=',')
     
-    delta1 =  
-    delta2
+    error = np.ones(p_val)
 
+    outputs = np.zeros(p_val)
 
+    for mu in range(p_val):
+        x_mu = x_val[mu]
+        t_mu = target_val[mu]
+
+        # Propagate forward: 
+        b1 = w1 @ x_mu - theta1
+        V1 = np.tanh(b1)
+        b2 = w2 @ V1 - theta2
+        V2 = np.tanh(b2)
+        b3 = w3 @ V2 - theta3
+        O = np.tanh(b3)
+
+        error[mu] = np.abs((-1 if O < 0 else 1) - t_mu)
+        outputs[mu] = -1 if O < 0 else 1
+
+    C = 1/(2*p_val)*np.sum(error)
+
+    print(f"The classification error is {C}") 
+
+    fig, ax = plt.subplots(1,2,figsize=(5,5))
+    for color, num in zip("kr", (-1,1)):
+
+        mask_training = np.where(target_val==num)[0]
+        ax[0].scatter(x_val[mask_training,0],x_val[mask_training,1], c=color, alpha=0.5, s=2)
+        
+        mask_val = np.where(outputs==num)[0]
+        ax[1].scatter(x_val[mask_val,0],x_val[mask_val,1], c=color, alpha=0.5, s=2)
+
+    plt.show()
 
 
 def run():
 
-    pass
+    current_directory = os.getcwd()
+    print("Current Directory:", current_directory)
+    data = np.loadtxt(os.path.join("OpenTA","Homework2", "training_set.csv"), delimiter=',')
+    x = data[:, :2]
+    target = data[:, -1]
+    print(f"The shape of the data is {data.shape}")
+    print(f"The ratio of t=1 to t=-1 is {np.sum(target==1)/np.sum(target==-1)}")
+    # stochastic_gradient_descent(x, target, epochs=100_000, eta = 0.01, network_size=(2,2), save_weights = True)
+
+    val_data = np.loadtxt(os.path.join("OpenTA","Homework2", "validation_set.csv"), delimiter=',')
+
+    validate_model(val_data)
 
 
 
 
 if __name__ == "__main__":
-    
-    plot_input()
+    run()
+    # plot_input()
     
