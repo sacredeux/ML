@@ -4,6 +4,7 @@ using StatsBase
 using Plots
 using Printf
 using DelimitedFiles
+using LaTeXStrings
 gr()
 
 function p(x)
@@ -143,7 +144,7 @@ end
 
 function plot_results()
 
-    data = readdlm("delim_file_final.txt", '\t', Float64)
+    data = readdlm("/home/sacredeux/Documents/Chalmers/FFR135/OpenTA/Homework2/julia_v1/delim_file_final.txt", '\t', Float64)
     println("The size of data is = ", size(data))
     
     Ms = unique(data[:,2])
@@ -153,10 +154,10 @@ function plot_results()
     for M ∈ Ms
         M_mask = findall(x -> x == M, data[:, 2]) 
         dkls = data[M_mask, 3]
-        ms = data[M_mask, 2]
+        ms = data[M_mask, 2] .+ randn(length(M_mask)) / 20
 
-
-        scatter!(p, ms, dkls, label="M=$M")
+        legend_entry = "M = "*string(floor(Int8, M))
+        scatter!(p, ms, dkls, label=legend_entry, markerstrokewidth = 0, alpha=0.6)
 
     end
 
@@ -170,9 +171,12 @@ function plot_results()
             dkl_theory[M] = 0
         end
     end
-    plot!(p, collect(1:8), dkl_theory, label="Theory")
+    plot!(p, collect(1:8), dkl_theory, label="Theory", linewidth=2.1, alpha=0.7, color="black", framestyle = :axis)
+    xlabel!(p, L"M")
+    ylabel!(p, L"D_{\mathrm{KL}}")
+    title!(p, L"\mathrm{Kullback-Leibler\ divergence}")
 
-    savefig(p, "scatterplot_of_m.png")
+    savefig(p, "/home/sacredeux/Documents/Chalmers/FFR135/OpenTA/Homework2/julia_v1/scatterplot_of_m.pdf")
 end
 
 plot_results()
